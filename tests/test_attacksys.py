@@ -19,8 +19,8 @@ it may causes some condition that will affect the enemy recurrently (confusion, 
 it may be a special condition that affects even outside battle (poison, burn, sleep, etc)
 """
 
-from attacksys.action import cast_move
-from attacksys.definitions import (Creature, Damage, Move, MovePos, Nature,
+from battlesys.action import cast_move
+from battlesys.definitions import (Creature, Damage, Move, MovePos, Nature,
                                    StatsAlteration, StatsName)
 
 

@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "attacksys"
+name = "battlesys"
 version = "0.1.0"
 description = "An example development of the attack system from the Pokémon game series using TDD as a design workframe."
 authors = ["João Vitor Gutkoski Paes <joaovitorgpaes@gmail.com>"]
