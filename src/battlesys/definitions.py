@@ -42,7 +42,7 @@ class InvalidNatureError(Exception):
 @dataclass
 class StatsAlteration:
     stats: StatsName
-    factor: float
+    count: int
 
 
 @dataclass
@@ -98,10 +98,10 @@ class Move:
         if is_a_hit:
             if self.damage:
                 atk_stats, def_stats = self.damage.stats_by_nature()
-                atk2def = (caster.current_stats[atk_stats] / target.current_stats[def_stats])
+                atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
                 basis = (2 * caster.level * critical / 5) + 2
                 damage = (basis * self.damage.power * atk2def / 50) + 2
-                _effect.damage = max(1, damage)
+                _effect.damage = max(1, int(damage))
             if self.alteration:
                 _effect.alteration=self.alteration
         return _effect
@@ -113,16 +113,58 @@ class Creature:
     max_health: int = 50
     health: int = max_health
 
-    current_stats: dict = field(default_factory=dict, init=False)
+    # current_stats: dict = field(default_factory=dict, init=False)
+    stats_modifiers: dict[StatsName, int] = field(default_factory=dict, init=False)
     stats: dict[StatsName, int] = field(default_factory=dict)
 
     moves: dict[MovePos, Move] = field(default_factory=dict)
 
     def __post_init__(self):
-        self.current_stats = self.stats.copy()
+        self.stats_modifiers = {stat_name: 0 for stat_name in self.stats}
+
+    def current_stats(self, stat_name: StatsName) -> int:
+        base = self.stats[stat_name]
+        modifiers_count = self.stats_modifiers[stat_name]
+        cs = base * (1 * modifier_factor(modifiers_count))
+        return int(cs)
 
     def apply(self, effect: MoveEffect):
         if effect.damage:
             self.health -= effect.damage
         if effect.alteration:
-            self.current_stats[effect.alteration.stats] *= effect.alteration.factor
+            self.stats_modifiers[effect.alteration.stats] += effect.alteration.count
+
+
+def sign(number: int | float) -> int:
+    """Returns the sign of the number, or zero."""
+    if number > 0:
+        return +1
+    if number < 0:
+        return -1
+    return 0
+
+
+def modifier_factor(modifiers_count: int) -> float:
+    """Produces the following pattern for :param:`modifiers_count`
+
+    modifiers_count | modifier_factor
+        -6          |       0.25
+        -5          |       0.28
+        -4          |       0.33
+        -3          |       0.4
+        -2          |       0.5
+        -1          |       0.66
+        0           |       1.0
+        +1          |       1.5
+        +2          |       2.0
+        +3          |       2.5
+        +4          |       3.0
+        +5          |       3.5
+        +6          |       4.0
+
+    :param modifiers_count: total count of modifiers for any stat
+    :type modifiers_count: int
+    :return: The computed modifier factor for that stat
+    :rtype: float
+    """
+    return (1 + 0.5 * abs(modifiers_count)) ** sign(modifiers_count)

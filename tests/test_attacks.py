@@ -35,7 +35,7 @@ def _howl_move() -> Move:
     return Move(name='howl',
                 hit_rate=100,
                 alteration=StatsAlteration(stats=StatsName.ATK,
-                                           factor=1.5),
+                                           count=1),
                 alteration_rate=100)
 
 
@@ -43,7 +43,7 @@ def _taunt_move() -> Move:
     return Move(name='taunt',
                 hit_rate=100,
                 alteration=StatsAlteration(stats=StatsName.DEF,
-                                           factor=0.5),
+                                           count=-1),
                 alteration_rate=100)
 
 
@@ -51,7 +51,7 @@ def _growl_move()-> Move:
     return Move(name='growl',
                 hit_rate=100,
                 alteration=StatsAlteration(stats=StatsName.ATK,
-                                           factor=0.5),
+                                           count=-1),
                 alteration_rate=100)
 
 
@@ -59,7 +59,7 @@ def _defense_curl_move() -> Move:
     return Move(name='defense curl',
                 hit_rate=100,
                 alteration=StatsAlteration(stats=StatsName.DEF,
-                                           factor=1.5),
+                                           count=1),
                 alteration_rate=100)
 
 
@@ -115,10 +115,10 @@ def test_pound_inflict_damage_taunt_reduces_defense_howl_increases_attack():
     assert player.health < player.max_health, "Pound did not reduce health"
 
     cast_move(player, MovePos.SECOND, player)
-    assert player.current_stats[StatsName.DEF] < player.stats[StatsName.DEF], "Taunting did not reduce defense"
+    assert player.current_stats(StatsName.DEF) < player.stats[StatsName.DEF], "Taunting did not reduce defense"
 
     cast_move(player, MovePos.THIRD, player)
-    assert player.current_stats[StatsName.ATK] > player.stats[StatsName.ATK], "Howling did not increased attack"
+    assert player.current_stats(StatsName.ATK) > player.stats[StatsName.ATK], "Howling did not increased attack"
 
 
 def test_physical_damage_is_greater_after_reducing_enemy_defense():
@@ -221,10 +221,10 @@ def test_physical_damage_is_lower_after_reducing_player_attack():
 def test_move_with_zero_rate_always_miss() -> None:
     player = Creature(moves=_moves_map_A(), stats=_stats_mapping_B())
 
-    player.moves[MovePos.SECOND].alteration_rate = 0
+    player.moves[MovePos.SECOND].hit_rate = 0
     cast_move(player, MovePos.SECOND, player)
 
-    assert player.current_stats[StatsName.DEF] == player.stats[StatsName.DEF]
+    assert player.current_stats(StatsName.DEF) == player.stats[StatsName.DEF]
 
 
 def test_stats_modifiers_cannot_be_applied_more_than_6_times():
@@ -250,18 +250,38 @@ def test_stats_modifiers_cannot_be_applied_more_than_6_times():
         # player howls 6 times in a row:
         cast_move(player, MovePos.THIRD, player)
 
-    atk_stats_after_6_howls = player.current_stats[StatsName.ATK]
+    atk_stats_after_6_howls = player.current_stats(StatsName.ATK)
 
     # howls a 7th time
     cast_move(player, MovePos.THIRD, player)
 
-    atk_stats_after_7_howls = player.current_stats[StatsName.ATK]
+    atk_stats_after_7_howls = player.current_stats(StatsName.ATK)
 
     assert atk_stats_after_7_howls == atk_stats_after_6_howls
 
     # howls an 8th time
     cast_move(player, MovePos.THIRD, player)
 
-    atk_stats_after_8_howls = player.current_stats[StatsName.ATK]
+    atk_stats_after_8_howls = player.current_stats(StatsName.ATK)
 
     assert atk_stats_after_8_howls == atk_stats_after_6_howls
+
+
+def test_using_stats_alteration_alters_stats_modifiers_count_for_status():
+    player = Creature(stats=_stats_mapping_A(), moves=_moves_map_A())
+    enemy = Creature(stats=_stats_mapping_B(), moves=_moves_map_B())
+
+    cast_move(player, MovePos.THIRD, player)
+    assert player.stats_modifiers[StatsName.ATK] == 1
+    assert player.current_stats(StatsName.ATK) > player.stats[StatsName.ATK]
+
+    cast_move(player, MovePos.THIRD, player)
+    cast_move(player, MovePos.THIRD, player)
+    assert player.stats_modifiers[StatsName.ATK] == 3
+    player_atk_3_mods = player.current_stats(StatsName.ATK)
+
+    cast_move(enemy, MovePos.THIRD, player)
+    assert player.stats_modifiers[StatsName.ATK] == 2
+    player_atk_2_mods = player.current_stats(StatsName.ATK)
+
+    assert player_atk_3_mods > player_atk_2_mods
