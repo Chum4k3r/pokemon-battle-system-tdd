@@ -3,9 +3,9 @@
 """
 attack system:
 
-each attack have its power/damage value
+each attack have its power/damage value (DONE)
 
-it is also affected by some stats and by the nature of the attack: physical or magical
+it is also affected by some stats and by the nature of the attack: physical or magical (DONE)
 
 the attack has a success rate, which is also affected by enemy's evasiveness
 
@@ -24,33 +24,92 @@ from battlesys.definitions import (Creature, Damage, Move, MovePos, Nature,
                                    StatsAlteration, StatsName)
 
 
-def _moves_map_A():
-    return {MovePos.FIRST: Move(name='pound',
-                                damage=Damage(power=40,
-                                              nature=Nature.PHYSICAL)),
-            MovePos.SECOND: Move(name='taunt',
-                                 alteration=StatsAlteration(stats=StatsName.DEF,
-                                                            factor=0.5)),
-            MovePos.THIRD: Move(name='howl',
-                                alteration=StatsAlteration(stats=StatsName.ATK,
-                                                           factor=1.5))}
+def _pound_move() -> Move:
+    return Move(name='pound',
+                damage=Damage(power=40,
+                              nature=Nature.PHYSICAL),
+                hit_rate=100)
 
 
-def _moves_map_B():
-    return {MovePos.FIRST: Move(name='tackle',
-                                damage=Damage(power=35,
-                                              nature=Nature.PHYSICAL)),
-            MovePos.SECOND: Move(name='defense curl',
-                                 alteration=StatsAlteration(stats=StatsName.DEF,
-                                                            factor=1.5)),
-            MovePos.THIRD: Move(name='growl',
-                                alteration=StatsAlteration(stats=StatsName.ATK,
-                                                           factor=0.5))}
+def _howl_move() -> Move:
+    return Move(name='howl',
+                hit_rate=100,
+                alteration=StatsAlteration(stats=StatsName.ATK,
+                                           factor=1.5),
+                alteration_rate=100)
 
+
+def _taunt_move() -> Move:
+    return Move(name='taunt',
+                hit_rate=100,
+                alteration=StatsAlteration(stats=StatsName.DEF,
+                                           factor=0.5),
+                alteration_rate=100)
+
+
+def _growl_move()-> Move:
+    return Move(name='growl',
+                hit_rate=100,
+                alteration=StatsAlteration(stats=StatsName.ATK,
+                                           factor=0.5),
+                alteration_rate=100)
+
+
+def _defense_curl_move() -> Move:
+    return Move(name='defense curl',
+                hit_rate=100,
+                alteration=StatsAlteration(stats=StatsName.DEF,
+                                           factor=1.5),
+                alteration_rate=100)
+
+
+def _tackle_move() -> Move:
+    return Move(name='tackle',
+                hit_rate=100,
+                damage=Damage(power=35,
+                              nature=Nature.PHYSICAL))
+
+
+
+def _moves_map_A() -> dict[MovePos, Move]:
+    return {MovePos.FIRST: _pound_move(),
+            MovePos.SECOND: _taunt_move(),
+            MovePos.THIRD: _howl_move()}
+
+
+def _moves_map_B() -> dict[MovePos, Move]:
+    return {MovePos.FIRST: _tackle_move(),
+            MovePos.SECOND: _defense_curl_move(),
+            MovePos.THIRD: _growl_move()}
+
+
+
+def _stats_mapping_A():
+    return {
+        StatsName.ATK: 8,
+        StatsName.DEF: 8,
+        StatsName.SAT: 11,
+        StatsName.SDF: 9,
+        StatsName.SPD: 10,
+        StatsName.EVA: 0,
+        StatsName.ACC: 0,
+    }
+
+
+def _stats_mapping_B():
+    return {
+        StatsName.ATK: 11,
+        StatsName.DEF: 9,
+        StatsName.SAT: 8,
+        StatsName.SDF: 8,
+        StatsName.SPD: 10,
+        StatsName.EVA: 0,
+        StatsName.ACC: 0,
+    }
 
 
 def test_pound_inflict_damage_taunt_reduces_defense_howl_increases_attack():
-    player = Creature(moves=_moves_map_A())
+    player = Creature(moves=_moves_map_A(), stats=_stats_mapping_A())
 
     cast_move(player, MovePos.FIRST, player)
     assert player.health < player.max_health, "Pound did not reduce health"
@@ -63,8 +122,8 @@ def test_pound_inflict_damage_taunt_reduces_defense_howl_increases_attack():
 
 
 def test_physical_damage_is_greater_after_reducing_enemy_defense():
-    player = Creature(moves=_moves_map_A())
-    enemy = Creature(moves=_moves_map_A())
+    player = Creature(moves=_moves_map_A(), stats=_stats_mapping_A())
+    enemy = Creature(moves=_moves_map_A(), stats=_stats_mapping_A())
 
     # Player wants to cast POUND on enemy
     cast_move(player, MovePos.FIRST, enemy)
@@ -87,8 +146,8 @@ def test_physical_damage_is_greater_after_reducing_enemy_defense():
 
 
 def test_physical_damage_is_greater_after_increasing_caster_attack():
-    player = Creature(moves=_moves_map_A())
-    enemy = Creature(moves=_moves_map_A())
+    player = Creature(moves=_moves_map_A(), stats=_stats_mapping_A())
+    enemy = Creature(moves=_moves_map_A(), stats=_stats_mapping_A())
 
     # Player wants to cast POUND on enemy
     cast_move(player, MovePos.FIRST, enemy)
@@ -112,8 +171,8 @@ def test_physical_damage_is_greater_after_increasing_caster_attack():
 
 
 def test_physical_damage_is_lower_after_increasing_enemy_defense():
-    player = Creature(moves=_moves_map_A())
-    enemy = Creature(moves=_moves_map_B())
+    player = Creature(moves=_moves_map_A(), stats=_stats_mapping_A())
+    enemy = Creature(moves=_moves_map_B(), stats=_stats_mapping_A())
 
     # Player wants to cast POUND on enemy
     cast_move(player, MovePos.FIRST, enemy)
@@ -136,8 +195,8 @@ def test_physical_damage_is_lower_after_increasing_enemy_defense():
 
 
 def test_physical_damage_is_lower_after_reducing_player_attack():
-    player = Creature(moves=_moves_map_A())
-    enemy = Creature(moves=_moves_map_B())
+    player = Creature(moves=_moves_map_A(), stats=_stats_mapping_A())
+    enemy = Creature(moves=_moves_map_B(), stats=_stats_mapping_A())
 
     # Player wants to cast POUND on enemy
     cast_move(player, MovePos.FIRST, enemy)
