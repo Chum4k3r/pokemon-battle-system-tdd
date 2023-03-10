@@ -162,9 +162,12 @@ def modifier_factor(modifiers_count: int) -> float:
         +5          |       3.5
         +6          |       4.0
 
+    The modifier factor cannot consider `abs(modifier_count) > 6`, so a caping
+    of `min(6, abs(modifiers_count))` exists within the factor computation.
+
     :param modifiers_count: total count of modifiers for any stat
     :type modifiers_count: int
     :return: The computed modifier factor for that stat
     :rtype: float
     """
-    return (1 + 0.5 * abs(modifiers_count)) ** sign(modifiers_count)
+    return (1 + 0.5 * min(6, abs(modifiers_count))) ** sign(modifiers_count)
