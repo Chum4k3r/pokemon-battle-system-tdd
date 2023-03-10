@@ -113,7 +113,7 @@ def test_pound_inflict_damage_taunt_reduces_defense_howl_increases_attack():
 
     cast_move(player, MovePos.FIRST, player)
     assert player.health < player.max_health, "Pound did not reduce health"
-        
+
     cast_move(player, MovePos.SECOND, player)
     assert player.current_stats[StatsName.DEF] < player.stats[StatsName.DEF], "Taunting did not reduce defense"
 
@@ -131,7 +131,7 @@ def test_physical_damage_is_greater_after_reducing_enemy_defense():
     # POUNDing the enemy reduces a certain amount of HP
     delta_health_before_taunt = enemy.max_health - enemy.health
 
-    # Then, player TAUNTs the enemy, to reduce defense    
+    # Then, player TAUNTs the enemy, to reduce defense
     cast_move(player, MovePos.SECOND, enemy)
 
     # reset health for easy comparison
@@ -155,7 +155,7 @@ def test_physical_damage_is_greater_after_increasing_caster_attack():
     # POUNDing the enemy reduces a certain amount of HP
     delta_health_before_boost = enemy.max_health - enemy.health
 
-    # Then, player BOOSTs itself, to increase attack    
+    # Then, player BOOSTs itself, to increase attack
     cast_move(player, MovePos.THIRD, player)
 
     # reset health for easy comparison
@@ -180,7 +180,7 @@ def test_physical_damage_is_lower_after_increasing_enemy_defense():
     # POUNDing the enemy reduces a certain amount of HP
     delta_health_before_curl = enemy.max_health - enemy.health
 
-    # Then, enemy CURLs itself to increase defense    
+    # Then, enemy CURLs itself to increase defense
     cast_move(enemy, MovePos.SECOND, enemy)
 
     # reset health for easy comparison
@@ -204,7 +204,7 @@ def test_physical_damage_is_lower_after_reducing_player_attack():
     # POUNDing the enemy reduces a certain amount of HP
     delta_health_before_growl = enemy.max_health - enemy.health
 
-    # Then, enemy GROWLs at player to reduce its attack    
+    # Then, enemy GROWLs at player to reduce its attack
     cast_move(enemy, MovePos.THIRD, player)
 
     # reset health for easy comparison
@@ -216,3 +216,52 @@ def test_physical_damage_is_lower_after_reducing_player_attack():
     # POUNDing the enemy reduces a certain amount of HP
     delta_health_after_growl = enemy.max_health - enemy.health
     assert delta_health_after_growl < delta_health_before_growl, "Increasing DEF made no difference on damage."
+
+
+def test_move_with_zero_rate_always_miss() -> None:
+    player = Creature(moves=_moves_map_A(), stats=_stats_mapping_B())
+
+    player.moves[MovePos.SECOND].alteration_rate = 0
+    cast_move(player, MovePos.SECOND, player)
+
+    assert player.current_stats[StatsName.DEF] == player.stats[StatsName.DEF]
+
+
+def test_stats_modifiers_cannot_be_applied_more_than_6_times():
+    """Sometimes we may overuse some stats alteration move, and the battle system prevents
+    from using it more than 6 times.
+
+    This requires some sort of counter to keep track of how many alterations have been used for
+    the same stats.
+
+    Lets say, 7 or 8 attack boosts should give the maximum bonus of only 6 boosts.
+
+    We will assume a starting value of 0, with -6 being the bottom count and +6 the top count
+
+    A positive sign indicates a status increase, and a negative sign indicates a status decrease.
+
+    ----
+    Overall note: This feature will be key for the evasion/accuracy interface of hit probability
+    on a further development.
+    """
+    player = Creature(moves=_moves_map_A(), stats=_stats_mapping_B())
+
+    for _ in range(6):
+        # player howls 6 times in a row:
+        cast_move(player, MovePos.THIRD, player)
+
+    atk_stats_after_6_howls = player.current_stats[StatsName.ATK]
+
+    # howls a 7th time
+    cast_move(player, MovePos.THIRD, player)
+
+    atk_stats_after_7_howls = player.current_stats[StatsName.ATK]
+
+    assert atk_stats_after_7_howls == atk_stats_after_6_howls
+
+    # howls an 8th time
+    cast_move(player, MovePos.THIRD, player)
+
+    atk_stats_after_8_howls = player.current_stats[StatsName.ATK]
+
+    assert atk_stats_after_8_howls == atk_stats_after_6_howls
