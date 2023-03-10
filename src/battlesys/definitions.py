@@ -70,8 +70,8 @@ class Damage:
 @dataclass
 class MoveEffect:
     damage: int = 0
-    alteration: StatsAlteration = None
-    condition: Condition = None
+    alteration: StatsAlteration | None = None
+    condition: Condition | None = None
 
 
 @dataclass
@@ -79,25 +79,26 @@ class Move:
     name: str = ""
 
     hit_rate: int = 0
-    
-    damage: Damage = None
 
-    alteration: StatsAlteration = None
+    damage: Damage | None = None
+
+    alteration: StatsAlteration | None = None
     alteration_rate: int = 0
 
-    condition: Condition = None
+    condition: Condition | None = None
     condition_rate: int = 0
-    
+
     def effect(self, caster: 'Creature', target: 'Creature') -> MoveEffect:
         _effect = MoveEffect()
-        
+
         is_a_hit = random.randint(1, 100) <= self.hit_rate
-        
+
         critical = 1 #+ (random.random() >= 0.8)
 
         if is_a_hit:
             if self.damage:
-                atk2def = self.atk_2_def_ratio(caster, target)
+                atk_stats, def_stats = self.damage.stats_by_nature()
+                atk2def = (caster.current_stats[atk_stats] / target.current_stats[def_stats])
                 basis = (2 * caster.level * critical / 5) + 2
                 damage = (basis * self.damage.power * atk2def / 50) + 2
                 _effect.damage = max(1, damage)
@@ -105,21 +106,16 @@ class Move:
                 _effect.alteration=self.alteration
         return _effect
 
-    def atk_2_def_ratio(self, caster: 'Creature', target: 'Creature'):
-        atk_stats, def_stats = self.damage.stats_by_nature()
-        atk2def_ratio = (caster.current_stats[atk_stats] / target.current_stats[def_stats])
-        return atk2def_ratio
-
 
 @dataclass
 class Creature:
     level: int = 5
     max_health: int = 50
     health: int = max_health
-    
+
     current_stats: dict = field(default_factory=dict, init=False)
     stats: dict[StatsName, int] = field(default_factory=dict)
-    
+
     moves: dict[MovePos, Move] = field(default_factory=dict)
 
     def __post_init__(self):
