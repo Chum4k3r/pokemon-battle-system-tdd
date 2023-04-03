@@ -24,7 +24,7 @@ it may be a special condition that affects even outside battle (poison, burn, sl
 """
 
 from battlesys.action import cast_move
-from battlesys.definitions import (Creature, Damage, Move, MovePos, Nature,
+from battlesys.definitions import (Creature, Damage, Move, MovePos, Nature, ResultType,
                                    StatsAlteration, StatsName)
 
 
@@ -303,14 +303,10 @@ def test_higher_evasion_avoids_more_hits():
                                                 hit_rate=100,
                                                 damage=Damage(power=0, nature=Nature.PHYSICAL))})
 
-    desired_results = [ResultType.MISS, ResultType.EVADED]
-    count = 100
+    desired_results = [ResultType.MISS, ResultType.EVAD]
+    total_casts_count = 100
 
-
-    num_evasions_before_raising_evasiveness = [
-        (cast_move(enemy, MovePos.FIRST, player) in desired_results)
-        for _ in range(count)
-    ]
+    evasions_before_raising_evasiveness_ratio = _results_ratio(player, MovePos.FIRST, enemy, desired_results, total_casts_count)
 
     cast_move(player, MovePos.SECOND, player)
     assert player.stats_modifiers[StatsName.EVA] == 1
@@ -318,9 +314,13 @@ def test_higher_evasion_avoids_more_hits():
 
     """`hit_result` may be 'Miss', 'Evaded', 'Failed', 'Hit', 'Critical'"""
 
-    num_evasions_after_raising_evasiveness = [
-        (cast_move(enemy, MovePos.FIRST, player) in desired_results)
-        for _ in range(100)
-    ]
+    evasions_after_raising_evasiveness_ratio = _results_ratio(player, MovePos.FIRST, enemy, desired_results, total_casts_count)
 
-    assert sum(num_evasions_after_raising_evasiveness)/count > sum(num_evasions_before_raising_evasiveness)/count
+    assert evasions_after_raising_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
+
+
+def _results_ratio(caster: Creature, move_pos: MovePos, target: Creature, desired_results: list[ResultType], total_results: int) -> float:
+    return sum(
+        (cast_move(target, move_pos, caster) in desired_results)
+        for _ in range(total_results)
+    ) / total_results
