@@ -295,7 +295,7 @@ def test_higher_evasion_avoids_more_hits():
     player = Creature(stats=_stats_mapping_A(),
                       moves={MovePos.FIRST: _pound_move(),
                              MovePos.SECOND: Move(name='sleek body',
-                                                  hit_rate=0,
+                                                  hit_rate=100,
                                                   alteration=StatsAlteration(stats=StatsName.EVA, count=1),
                                                   alteration_rate=100)})
     enemy = Creature(stats=_stats_mapping_B(),

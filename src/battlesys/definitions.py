@@ -105,26 +105,35 @@ class Move:
     def effect(self, caster: 'Creature', target: 'Creature') -> MoveEffect:
         _effect = MoveEffect()
 
-        result = ResultType.HIT if is_a_hit(self.hit_rate) else ResultType.MISS
+        _effect.result = ResultType.HIT if is_a_hit(self.hit_rate) else ResultType.MISS
 
-        is_critical = (result is ResultType.HIT) and _calc_critical()
+        if _effect.result is not ResultType.HIT:
+            return _effect
 
-        damage = calculate_damage(self.damage, caster, target, is_critical)
+        self.parse_hit_effect(caster, target, _effect)
+
+        return _effect
+
+    def parse_hit_effect(self, caster: 'Creature', target: 'Creature', effect: MoveEffect):
+        is_critical = _calc_critical()
+        critical_modifier = (1 + is_critical)
+        effect.result = ResultType.CRIT if is_critical else effect.result
+
+        assert critical_modifier in [1, 2], f"Critical modifier out of bounds: {critical_modifier=}, {is_critical=}"
+        damage = calculate_damage(self.damage, caster, target, critical_modifier)
 
         alteration = self.alteration if is_a_hit(self.alteration_rate) else None
 
-        _effect.damage = damage
-        _effect.alteration = alteration
-        _effect.result = result
-        return _effect
+        effect.damage = damage
+        effect.alteration = alteration
 
 
 def _calc_critical() -> bool:
     return False
 
 
-def is_a_hit(rate):
-    return random.randint(1, 100) <= rate
+def is_a_hit(rate: int) -> bool:  # TODO: implement hit ratio formula, to consider evasiveness and accuracy.
+    return (bool(rate) and (random.randint(1, 100) <= rate))
 
 
 @dataclass
@@ -152,25 +161,23 @@ class Creature:
         return int(cs)
 
     def apply(self, effect: MoveEffect) -> ResultType:
-        if effect.damage:
-            self.health -= effect.damage
-        if effect.alteration:
-            self.stats_modifiers[effect.alteration.stats] += effect.alteration.count
+        if (effect.result is ResultType.HIT):
+            if effect.damage:
+                self.health -= effect.damage
+            if effect.alteration:
+                self.stats_modifiers[effect.alteration.stats] += effect.alteration.count
         return effect.result
 
 
-def calculate_damage(damage_data: Damage | None, caster: Creature, target: Creature, is_critical: bool) -> int:
+def calculate_damage(damage_data: Damage | None, caster: Creature, target: Creature, crit_mod: int) -> int:
     if (damage_data is None) or (damage_data.power == 0):
         return 0
     atk_stats, def_stats = damage_data.stats
     atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
-    basis = (2 * caster.level * critical_modifier(is_critical) / 5) + 2
+    basis = (2 * caster.level * crit_mod / 5) + 2
     damage = max(1,
                  int(2 + (basis * damage_data.power * atk2def / 50)))
     return damage
-
-def critical_modifier(is_critical: bool) -> int:
-    return (1 + is_critical)
 
 
 def sign(number: int | float) -> int:
