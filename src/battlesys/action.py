@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 
-from battlesys.definitions import Creature, MovePos
+from battlesys.definitions import Creature, MovePos, ResultType
 
 
-def cast_move(caster: Creature, move_pos: MovePos, target: Creature):
+def cast_move(caster: Creature, move_pos: MovePos, target: Creature) -> ResultType:
     move = caster.moves[move_pos]
     move_effect = move.effect(caster, target)
-    target.apply(move_effect)
+    result = target.apply(move_effect)
+    return result
