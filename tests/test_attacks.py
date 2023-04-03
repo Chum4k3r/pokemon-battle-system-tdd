@@ -7,12 +7,16 @@ each attack have its power/damage value (DONE)
 
 it is also affected by some stats and by the nature of the attack: physical or magical (DONE)
 
+it may be a special effect that alters the enemy stats (DONE)
+
+Status alterations can be stacked up to 6 modificators (DONE)
+
+    The current stats values are a product of the base stats and the stats modifier factor (DONE)
+
 the attack has a success rate, which is also affected by enemy's evasiveness
 
 the attack may be special in the sense of using some character attributes
 (height, weight, level) instead of stats (strenght, agility, knowledge) to calculate its damage
-
-it may be a special effect that alters the enemy status
 
 it may causes some condition that will affect the enemy recurrently (confusion, love, etc)
 
@@ -221,10 +225,10 @@ def test_physical_damage_is_lower_after_reducing_player_attack():
 def test_move_with_zero_rate_always_miss() -> None:
     player = Creature(moves=_moves_map_A(), stats=_stats_mapping_B())
 
-    player.moves[MovePos.SECOND].hit_rate = 0
-    cast_move(player, MovePos.SECOND, player)
+    player.moves[MovePos.FIRST].hit_rate = 0
+    cast_move(player, MovePos.FIRST, player)
 
-    assert player.current_stats(StatsName.DEF) == player.stats[StatsName.DEF]
+    assert player.health == player.max_health
 
 
 def test_stats_modifiers_cannot_be_applied_more_than_6_times():
@@ -285,3 +289,38 @@ def test_using_stats_alteration_alters_stats_modifiers_count_for_status():
     player_atk_2_mods = player.current_stats(StatsName.ATK)
 
     assert player_atk_3_mods > player_atk_2_mods
+
+
+def test_higher_evasion_avoids_more_hits():
+    player = Creature(stats=_stats_mapping_A(),
+                      moves={MovePos.FIRST: _pound_move(),
+                             MovePos.SECOND: Move(name='sleek body',
+                                                  hit_rate=0,
+                                                  alteration=StatsAlteration(stats=StatsName.EVA, count=1),
+                                                  alteration_rate=100)})
+    enemy = Creature(stats=_stats_mapping_B(),
+                     moves={MovePos.FIRST: Move(name='fake hit',
+                                                hit_rate=100,
+                                                damage=Damage(power=0, nature=Nature.PHYSICAL))})
+
+    desired_results = [ResultType.MISS, ResultType.EVADED]
+    count = 100
+
+
+    num_evasions_before_raising_evasiveness = [
+        (cast_move(enemy, MovePos.FIRST, player) in desired_results)
+        for _ in range(count)
+    ]
+
+    cast_move(player, MovePos.SECOND, player)
+    assert player.stats_modifiers[StatsName.EVA] == 1
+    assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
+
+    """`hit_result` may be 'Miss', 'Evaded', 'Failed', 'Hit', 'Critical'"""
+
+    num_evasions_after_raising_evasiveness = [
+        (cast_move(enemy, MovePos.FIRST, player) in desired_results)
+        for _ in range(100)
+    ]
+
+    assert sum(num_evasions_after_raising_evasiveness)/count > sum(num_evasions_before_raising_evasiveness)/count
