@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from functools import lru_cache
 import random
 from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum, auto
@@ -33,6 +34,15 @@ class StatsName(StrEnum):
     SPD = 'speed'
 
 
+class ResultType(StrEnum):
+    MISS = 'missed'
+    EVAD = 'evaded'
+    HIT = 'hit'
+    CRIT = 'critical'
+    FAIL = 'failed'
+
+
+
 class InvalidNatureError(Exception):
     def __init__(self, nature: Nature) -> None:
         self.nature = nature
@@ -53,18 +63,20 @@ class Condition:
     alteration: StatsAlteration
 
 
+@lru_cache
+def _stats_by_nature() -> dict[Nature, tuple[StatsName, StatsName]]:
+    return {Nature.PHYSICAL : (StatsName.ATK, StatsName.DEF),
+            Nature.MAGICAL: (StatsName.SAT, StatsName.SDF)}
+
 @dataclass
 class Damage:
+    _stats: dict[Nature, tuple[StatsName, StatsName]] = field(default_factory=_stats_by_nature, init=False, repr=False, compare=False)
     power: int
     nature: Nature
 
-    def stats_by_nature(self) -> tuple[StatsName, StatsName]:
-        if self.nature is Nature.PHYSICAL:
-            return StatsName.ATK, StatsName.DEF
-        if self.nature is Nature.MAGICAL:
-            return StatsName.SAT, StatsName.SDF
-        else:
-            raise InvalidNatureError(self.nature)
+    @property
+    def stats(self) -> tuple[StatsName, StatsName]:
+        return self._stats[self.nature]
 
 
 
@@ -73,6 +85,7 @@ class MoveEffect:
     damage: int = 0
     alteration: StatsAlteration | None = None
     condition: Condition | None = None
+    result: ResultType = ResultType.FAIL
 
 
 @dataclass
@@ -92,20 +105,26 @@ class Move:
     def effect(self, caster: 'Creature', target: 'Creature') -> MoveEffect:
         _effect = MoveEffect()
 
-        is_a_hit = random.randint(1, 100) <= self.hit_rate
+        result = ResultType.HIT if is_a_hit(self.hit_rate) else ResultType.MISS
 
-        alteration_hit = random.randint(1, 100) <= self.alteration_rate
-        critical = 1 #+ (random.random() >= 0.8)
+        is_critical = (result is ResultType.HIT) and _calc_critical()
 
-        if is_a_hit and (self.damage is not None):
-            atk_stats, def_stats = self.damage.stats_by_nature()
-            atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
-            basis = (2 * caster.level * critical / 5) + 2
-            damage = (basis * self.damage.power * atk2def / 50) + 2
-            _effect.damage = max(1, int(damage))
-        if alteration_hit and (self.alteration is not None):
-            _effect.alteration = self.alteration
+        damage = calculate_damage(self.damage, caster, target, is_critical)
+
+        alteration = self.alteration if is_a_hit(self.alteration_rate) else None
+
+        _effect.damage = damage
+        _effect.alteration = alteration
+        _effect.result = result
         return _effect
+
+
+def _calc_critical() -> bool:
+    return False
+
+
+def is_a_hit(rate):
+    return random.randint(1, 100) <= rate
 
 
 @dataclass
@@ -132,11 +151,26 @@ class Creature:
         cs = base * modifier_factor(modifiers_count)
         return int(cs)
 
-    def apply(self, effect: MoveEffect):
+    def apply(self, effect: MoveEffect) -> ResultType:
         if effect.damage:
             self.health -= effect.damage
         if effect.alteration:
             self.stats_modifiers[effect.alteration.stats] += effect.alteration.count
+        return effect.result
+
+
+def calculate_damage(damage_data: Damage | None, caster: Creature, target: Creature, is_critical: bool) -> int:
+    if (damage_data is None) or (damage_data.power == 0):
+        return 0
+    atk_stats, def_stats = damage_data.stats
+    atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
+    basis = (2 * caster.level * critical_modifier(is_critical) / 5) + 2
+    damage = max(1,
+                 int(2 + (basis * damage_data.power * atk2def / 50)))
+    return damage
+
+def critical_modifier(is_critical: bool) -> int:
+    return (1 + is_critical)
 
 
 def sign(number: int | float) -> int:
