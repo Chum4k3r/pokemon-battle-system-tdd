@@ -17,6 +17,7 @@ class Nature(StrEnum):
 
 
 class StatsName(StrEnum):
+    HP  = 'health'
     STR = 'strength'
     AGI = 'agility'
     CON = 'constitution'
@@ -93,17 +94,17 @@ class Move:
 
         is_a_hit = random.randint(1, 100) <= self.hit_rate
 
+        alteration_hit = random.randint(1, 100) <= self.alteration_rate
         critical = 1 #+ (random.random() >= 0.8)
 
-        if is_a_hit:
-            if self.damage:
-                atk_stats, def_stats = self.damage.stats_by_nature()
-                atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
-                basis = (2 * caster.level * critical / 5) + 2
-                damage = (basis * self.damage.power * atk2def / 50) + 2
-                _effect.damage = max(1, int(damage))
-            if self.alteration:
-                _effect.alteration=self.alteration
+        if is_a_hit and (self.damage is not None):
+            atk_stats, def_stats = self.damage.stats_by_nature()
+            atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
+            basis = (2 * caster.level * critical / 5) + 2
+            damage = (basis * self.damage.power * atk2def / 50) + 2
+            _effect.damage = max(1, int(damage))
+        if alteration_hit and (self.alteration is not None):
+            _effect.alteration = self.alteration
         return _effect
 
 
@@ -113,7 +114,6 @@ class Creature:
     max_health: int = 50
     health: int = max_health
 
-    # current_stats: dict = field(default_factory=dict, init=False)
     stats_modifiers: dict[StatsName, int] = field(default_factory=dict, init=False)
     stats: dict[StatsName, int] = field(default_factory=dict)
 
@@ -123,9 +123,13 @@ class Creature:
         self.stats_modifiers = {stat_name: 0 for stat_name in self.stats}
 
     def current_stats(self, stat_name: StatsName) -> int:
+        if stat_name == StatsName.HP:
+            return self.health
+        if stat_name in [StatsName.EVA, StatsName.ACC]:
+            return self.stats_modifiers[stat_name]
         base = self.stats[stat_name]
         modifiers_count = self.stats_modifiers[stat_name]
-        cs = base * (1 * modifier_factor(modifiers_count))
+        cs = base * modifier_factor(modifiers_count)
         return int(cs)
 
     def apply(self, effect: MoveEffect):
