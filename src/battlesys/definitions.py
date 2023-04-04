@@ -105,7 +105,9 @@ class Move:
     def effect(self, caster: 'Creature', target: 'Creature') -> MoveEffect:
         _effect = MoveEffect()
 
-        _effect.result = ResultType.HIT if is_a_hit(self.hit_rate) else ResultType.MISS
+        _effect.result = ResultType.HIT if is_a_hit(self.hit_rate,
+                                                    caster.current_stats(StatsName.ACC),
+                                                    target.current_stats(StatsName.EVA)) else ResultType.MISS
 
         if _effect.result is not ResultType.HIT:
             return _effect
@@ -122,7 +124,7 @@ class Move:
         assert critical_modifier in [1, 2], f"Critical modifier out of bounds: {critical_modifier=}, {is_critical=}"
         damage = calculate_damage(self.damage, caster, target, critical_modifier)
 
-        alteration = self.alteration if is_a_hit(self.alteration_rate) else None
+        alteration = self.alteration if is_a_hit(self.alteration_rate, 0, 0) else None
 
         effect.damage = damage
         effect.alteration = alteration
@@ -132,8 +134,12 @@ def _calc_critical() -> bool:
     return False
 
 
-def is_a_hit(rate: int) -> bool:  # TODO: implement hit ratio formula, to consider evasiveness and accuracy.
-    return (bool(rate) and (random.randint(1, 100) <= rate))
+def is_a_hit(move_rate: int, caster_accuracy: int, target_evasiveness: int) -> bool:  # TODO: implement hit ratio formula, to consider evasiveness and accuracy.
+    if not move_rate:
+        return False
+    evade_accuracy_mod_ratio = modifier_factor(caster_accuracy) / modifier_factor(target_evasiveness)
+    adjusted_hit_rate = move_rate * evade_accuracy_mod_ratio
+    return (random.randint(1, 100) <= adjusted_hit_rate)
 
 
 @dataclass
