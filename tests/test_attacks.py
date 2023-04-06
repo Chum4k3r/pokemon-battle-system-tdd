@@ -222,13 +222,18 @@ def test_physical_damage_is_lower_after_reducing_player_attack():
     assert delta_health_after_growl < delta_health_before_growl, "Increasing DEF made no difference on damage."
 
 
-def test_move_with_zero_rate_always_miss() -> None:
+def test_move_with_zero_rate_always_miss_on_foes_and_always_hit_on_self() -> None:
     player = Creature(moves=_moves_map_A(), stats=_stats_mapping_B())
+    enemy = Creature(moves=_moves_map_A(), stats=_stats_mapping_B())
 
     player.moves[MovePos.FIRST].hit_rate = 0
-    cast_move(player, MovePos.FIRST, player)
+    result = cast_move(player, MovePos.FIRST, enemy)
+    assert result is ResultType.MISS
 
-    assert player.health == player.max_health
+    result = cast_move(player, MovePos.FIRST, player)
+    assert result is ResultType.HIT
+
+
 
 
 def test_stats_modifiers_cannot_be_applied_more_than_6_times():
