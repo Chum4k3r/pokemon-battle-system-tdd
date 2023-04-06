@@ -26,8 +26,9 @@ it may be a special condition that affects even outside battle (poison, burn, sl
 from battlesys.action import cast_move
 from battlesys.definitions import (Creature, Damage, Move, MovePos, Nature, ResultType,
                                    StatsAlteration, StatsName)
+from functools import lru_cache
 
-
+@lru_cache
 def _pound_move() -> Move:
     return Move(name='pound',
                 damage=Damage(power=40,
@@ -35,6 +36,7 @@ def _pound_move() -> Move:
                 hit_rate=100)
 
 
+@lru_cache
 def _howl_move() -> Move:
     return Move(name='howl',
                 hit_rate=100,
@@ -42,16 +44,36 @@ def _howl_move() -> Move:
                                            count=1),
                 alteration_rate=100)
 
+@lru_cache
+def _take_aim():
+    return Move(name='take aim',
+                hit_rate=100,
+                alteration=StatsAlteration(stats=StatsName.ACC, count=1),
+                alteration_rate=100)
 
+@lru_cache
+def _fake_hit_move() -> Move:
+    return Move(name='fake hit',
+                hit_rate=100,
+                damage=Damage(power=0, nature=Nature.PHYSICAL))
+
+@lru_cache
+def _bad_aim_move() -> Move:
+    return Move(name='bad aim',
+                hit_rate=50,
+                damage=Damage(power=0, nature=Nature.PHYSICAL))
+
+@lru_cache
 def _taunt_move() -> Move:
     return Move(name='taunt',
                 hit_rate=100,
-                alteration=StatsAlteration(stats=StatsName.DEF,
+                alteration=StatsAlteration(stats=StatsName.DFN,
                                            count=-1),
                 alteration_rate=100)
 
 
-def _growl_move()-> Move:
+@lru_cache
+def _growl_move_move()-> Move:
     return Move(name='growl',
                 hit_rate=100,
                 alteration=StatsAlteration(stats=StatsName.ATK,
@@ -59,14 +81,16 @@ def _growl_move()-> Move:
                 alteration_rate=100)
 
 
+@lru_cache
 def _defense_curl_move() -> Move:
     return Move(name='defense curl',
                 hit_rate=100,
-                alteration=StatsAlteration(stats=StatsName.DEF,
+                alteration=StatsAlteration(stats=StatsName.DFN,
                                            count=1),
                 alteration_rate=100)
 
 
+@lru_cache
 def _tackle_move() -> Move:
     return Move(name='tackle',
                 hit_rate=100,
@@ -84,14 +108,14 @@ def _moves_map_A() -> dict[MovePos, Move]:
 def _moves_map_B() -> dict[MovePos, Move]:
     return {MovePos.FIRST: _tackle_move(),
             MovePos.SECOND: _defense_curl_move(),
-            MovePos.THIRD: _growl_move()}
+            MovePos.THIRD: _growl_move_move()}
 
 
 
 def _stats_mapping_A():
     return {
         StatsName.ATK: 8,
-        StatsName.DEF: 8,
+        StatsName.DFN: 8,
         StatsName.SAT: 11,
         StatsName.SDF: 9,
         StatsName.SPD: 10,
@@ -103,7 +127,7 @@ def _stats_mapping_A():
 def _stats_mapping_B():
     return {
         StatsName.ATK: 11,
-        StatsName.DEF: 9,
+        StatsName.DFN: 9,
         StatsName.SAT: 8,
         StatsName.SDF: 8,
         StatsName.SPD: 10,
@@ -119,7 +143,7 @@ def test_pound_inflict_damage_taunt_reduces_defense_howl_increases_attack():
     assert player.health < player.max_health, "Pound did not reduce health"
 
     cast_move(player, MovePos.SECOND, player)
-    assert player.current_stats(StatsName.DEF) < player.stats[StatsName.DEF], "Taunting did not reduce defense"
+    assert player.current_stats(StatsName.DFN) < player.stats[StatsName.DFN], "Taunting did not reduce defense"
 
     cast_move(player, MovePos.THIRD, player)
     assert player.current_stats(StatsName.ATK) > player.stats[StatsName.ATK], "Howling did not increased attack"
@@ -314,7 +338,7 @@ def test_higher_evasion_avoids_more_hits():
     evasions_before_raising_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
 
     # RAISE EVASIVENESS
-    ensure_cast_on_self(player, MovePos.SECOND)
+    cast_move(player, MovePos.SECOND, player)
     assert player.stats_modifiers[StatsName.EVA] == 1
     assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
 
@@ -323,8 +347,8 @@ def test_higher_evasion_avoids_more_hits():
     assert evasions_after_raising_1_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
 
     # SHARPLY RAISE EVASIVENESS
-    ensure_cast_on_self(player, MovePos.SECOND)
-    ensure_cast_on_self(player, MovePos.SECOND)
+    cast_move(player, MovePos.SECOND, player)
+    cast_move(player, MovePos.SECOND, player)
     assert player.stats_modifiers[StatsName.EVA] == 3
     assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
 
@@ -334,42 +358,37 @@ def test_higher_evasion_avoids_more_hits():
     assert evasions_after_raising_3_evasiveness_ratio > evasions_after_raising_1_evasiveness_ratio
 
 
-def test_higher_evasion_avoids_more_hits():
+def test_higher_accuracy_hits_more():
     player = Creature(stats=_stats_mapping_A(),
-                      moves={MovePos.FIRST: _pound_move(),
-                             MovePos.SECOND: Move(name='sleek body',
-                                                  hit_rate=100,
-                                                  alteration=StatsAlteration(stats=StatsName.EVA, count=1),
-                                                  alteration_rate=100)})
-    enemy = Creature(stats=_stats_mapping_B(),
-                     moves={MovePos.FIRST: Move(name='fake hit',
-                                                hit_rate=100,
-                                                damage=Damage(power=0, nature=Nature.PHYSICAL))})
+                      moves={MovePos.FIRST: _bad_aim_move(),
+                             MovePos.SECOND: _take_aim()})
+    enemy = Creature(stats=_stats_mapping_B(), moves={})
 
-    desired_results = [ResultType.MISS, ResultType.EVAD]
+    desired_stat = StatsName.ACC
+    desired_results = [ResultType.HIT]
     total_casts_count = 100
 
-    evasions_before_raising_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
+    evasions_before_raising_accuracy_ratio = _results_ratio(player, MovePos.FIRST, enemy, desired_results, total_casts_count)
 
     # RAISE EVASIVENESS
     cast_move(player, MovePos.SECOND, player)
-    assert player.stats_modifiers[StatsName.EVA] == 1
-    assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
+    assert player.stats_modifiers[desired_stat] == 1
+    assert player.current_stats(desired_stat) > player.stats[desired_stat]
 
-    evasions_after_raising_1_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
+    evasions_after_raising_1_accuracy_ratio = _results_ratio(player, MovePos.FIRST, enemy, desired_results, total_casts_count)
 
-    assert evasions_after_raising_1_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
+    assert evasions_after_raising_1_accuracy_ratio > evasions_before_raising_accuracy_ratio
 
     # SHARPLY RAISE EVASIVENESS
     cast_move(player, MovePos.SECOND, player)
     cast_move(player, MovePos.SECOND, player)
-    assert player.stats_modifiers[StatsName.EVA] == 3
-    assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
+    assert player.stats_modifiers[desired_stat] == 3
+    assert player.current_stats(desired_stat) > player.stats[desired_stat]
 
-    evasions_after_raising_3_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
+    evasions_after_raising_3_accuracy_ratio = _results_ratio(player, MovePos.FIRST, enemy, desired_results, total_casts_count)
 
-    assert evasions_after_raising_3_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
-    assert evasions_after_raising_3_evasiveness_ratio > evasions_after_raising_1_evasiveness_ratio
+    assert evasions_after_raising_3_accuracy_ratio > evasions_before_raising_accuracy_ratio
+    assert evasions_after_raising_3_accuracy_ratio > evasions_after_raising_1_accuracy_ratio
 
 
 def _results_ratio(caster: Creature, move_pos: MovePos, target: Creature, desired_results: list[ResultType], total_results: int) -> float:
