@@ -333,10 +333,43 @@ def test_higher_evasion_avoids_more_hits():
     assert evasions_after_raising_3_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
     assert evasions_after_raising_3_evasiveness_ratio > evasions_after_raising_1_evasiveness_ratio
 
-def ensure_cast_on_self(caster: Creature, move_pos: MovePos) -> ResultType:
-    result = ResultType.MISS
-    while result is not ResultType.HIT:
-        result = cast_move(caster, move_pos, caster)
+
+def test_higher_evasion_avoids_more_hits():
+    player = Creature(stats=_stats_mapping_A(),
+                      moves={MovePos.FIRST: _pound_move(),
+                             MovePos.SECOND: Move(name='sleek body',
+                                                  hit_rate=100,
+                                                  alteration=StatsAlteration(stats=StatsName.EVA, count=1),
+                                                  alteration_rate=100)})
+    enemy = Creature(stats=_stats_mapping_B(),
+                     moves={MovePos.FIRST: Move(name='fake hit',
+                                                hit_rate=100,
+                                                damage=Damage(power=0, nature=Nature.PHYSICAL))})
+
+    desired_results = [ResultType.MISS, ResultType.EVAD]
+    total_casts_count = 100
+
+    evasions_before_raising_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
+
+    # RAISE EVASIVENESS
+    cast_move(player, MovePos.SECOND, player)
+    assert player.stats_modifiers[StatsName.EVA] == 1
+    assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
+
+    evasions_after_raising_1_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
+
+    assert evasions_after_raising_1_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
+
+    # SHARPLY RAISE EVASIVENESS
+    cast_move(player, MovePos.SECOND, player)
+    cast_move(player, MovePos.SECOND, player)
+    assert player.stats_modifiers[StatsName.EVA] == 3
+    assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
+
+    evasions_after_raising_3_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
+
+    assert evasions_after_raising_3_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
+    assert evasions_after_raising_3_evasiveness_ratio > evasions_after_raising_1_evasiveness_ratio
 
 
 def _results_ratio(caster: Creature, move_pos: MovePos, target: Creature, desired_results: list[ResultType], total_results: int) -> float:
