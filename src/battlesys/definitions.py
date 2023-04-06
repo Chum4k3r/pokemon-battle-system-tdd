@@ -103,38 +103,52 @@ class Move:
     condition_rate: int = 0
 
     def effect(self, caster: 'Creature', target: 'Creature') -> MoveEffect:
-        _effect = MoveEffect()
+        result = self.hit_or_miss(caster, target)
 
-        _effect.result = ResultType.HIT if is_a_hit(self.hit_rate,
-                                                    caster.current_stats(StatsName.ACC),
-                                                    target.current_stats(StatsName.EVA)) else ResultType.MISS
+        if result is not ResultType.HIT:
+            return MoveEffect(result=result)
 
-        if _effect.result is not ResultType.HIT:
-            return _effect
-
-        self.parse_hit_effect(caster, target, _effect)
-
-        return _effect
-
-    def parse_hit_effect(self, caster: 'Creature', target: 'Creature', effect: MoveEffect):
-        is_critical = _calc_critical()
-        critical_modifier = (1 + is_critical)
-        effect.result = ResultType.CRIT if is_critical else effect.result
-
-        assert critical_modifier in [1, 2], f"Critical modifier out of bounds: {critical_modifier=}, {is_critical=}"
-        damage = calculate_damage(self.damage, caster, target, critical_modifier)
+        damage, critical = self.build_damage(caster, target)
+        if critical:
+            result = ResultType.CRIT
 
         alteration = self.alteration if is_a_hit(self.alteration_rate, 0, 0) else None
 
-        effect.damage = damage
-        effect.alteration = alteration
+        _effect = MoveEffect(result=result,
+                             damage=damage,
+                             alteration=alteration)
+        return _effect
+
+    def hit_or_miss(self, caster: 'Creature', target: 'Creature') -> ResultType:
+        hit_result = (
+            ResultType.HIT
+            if is_a_hit(self.hit_rate,
+                        caster.current_stats(StatsName.ACC),
+                        target.current_stats(StatsName.EVA))
+                or (target is caster)
+            else ResultType.MISS
+        )
+        return hit_result
+
+    def build_damage(self, caster: 'Creature', target: 'Creature') -> tuple[int, bool]:
+        is_critical = _calc_critical()
+        if (self.damage is None) or ((damage_power := self.damage.power) == 0):
+            return 0, is_critical
+
+        critical_modifier = (1 + is_critical)
+        atk_stats, def_stats = self.damage.stats
+
+        atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
+        basis = (2 * caster.level * critical_modifier / 5) + 2
+        damage_value = max(1, int(2 + (basis * damage_power * atk2def / 50)))
+        return damage_value, is_critical
 
 
 def _calc_critical() -> bool:
     return False
 
 
-def is_a_hit(move_rate: int, caster_accuracy: int, target_evasiveness: int) -> bool:  # TODO: implement hit ratio formula, to consider evasiveness and accuracy.
+def is_a_hit(move_rate: int, caster_accuracy: int, target_evasiveness: int) -> bool:
     if not move_rate:
         return False
     evade_accuracy_mod_ratio = modifier_factor(caster_accuracy) / modifier_factor(target_evasiveness)
@@ -175,15 +189,6 @@ class Creature:
         return effect.result
 
 
-def calculate_damage(damage_data: Damage | None, caster: Creature, target: Creature, crit_mod: int) -> int:
-    if (damage_data is None) or (damage_data.power == 0):
-        return 0
-    atk_stats, def_stats = damage_data.stats
-    atk2def = (caster.current_stats(atk_stats) / target.current_stats(def_stats))
-    basis = (2 * caster.level * crit_mod / 5) + 2
-    damage = max(1,
-                 int(2 + (basis * damage_data.power * atk2def / 50)))
-    return damage
 
 
 def sign(number: int | float) -> int:

@@ -306,21 +306,36 @@ def test_higher_evasion_avoids_more_hits():
     desired_results = [ResultType.MISS, ResultType.EVAD]
     total_casts_count = 100
 
-    evasions_before_raising_evasiveness_ratio = _results_ratio(player, MovePos.FIRST, enemy, desired_results, total_casts_count)
+    evasions_before_raising_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
 
-    cast_move(player, MovePos.SECOND, player)
+    # RAISE EVASIVENESS
+    ensure_cast_on_self(player, MovePos.SECOND)
     assert player.stats_modifiers[StatsName.EVA] == 1
     assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
 
-    """`hit_result` may be 'Miss', 'Evaded', 'Failed', 'Hit', 'Critical'"""
+    evasions_after_raising_1_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
 
-    evasions_after_raising_evasiveness_ratio = _results_ratio(player, MovePos.FIRST, enemy, desired_results, total_casts_count)
+    assert evasions_after_raising_1_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
 
-    assert evasions_after_raising_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
+    # SHARPLY RAISE EVASIVENESS
+    ensure_cast_on_self(player, MovePos.SECOND)
+    ensure_cast_on_self(player, MovePos.SECOND)
+    assert player.stats_modifiers[StatsName.EVA] == 3
+    assert player.current_stats(StatsName.EVA) > player.stats[StatsName.EVA]
+
+    evasions_after_raising_3_evasiveness_ratio = _results_ratio(enemy, MovePos.FIRST, player, desired_results, total_casts_count)
+
+    assert evasions_after_raising_3_evasiveness_ratio > evasions_before_raising_evasiveness_ratio
+    assert evasions_after_raising_3_evasiveness_ratio > evasions_after_raising_1_evasiveness_ratio
+
+def ensure_cast_on_self(caster: Creature, move_pos: MovePos) -> ResultType:
+    result = ResultType.MISS
+    while result is not ResultType.HIT:
+        result = cast_move(caster, move_pos, caster)
 
 
 def _results_ratio(caster: Creature, move_pos: MovePos, target: Creature, desired_results: list[ResultType], total_results: int) -> float:
     return sum(
-        (cast_move(target, move_pos, caster) in desired_results)
+        (cast_move(caster, move_pos, target) in desired_results)
         for _ in range(total_results)
     ) / total_results
