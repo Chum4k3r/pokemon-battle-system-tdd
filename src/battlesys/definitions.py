@@ -28,7 +28,7 @@ class StatsName(StrEnum):
     EVA = 'evasiveness'
     ACC = 'accuracy'
     ATK = 'attack'
-    DEF = 'defense'
+    DFN = 'defense'
     SAT = 'special attack'
     SDF = 'special defense'
     SPD = 'speed'
@@ -65,7 +65,7 @@ class Condition:
 
 @lru_cache
 def _stats_by_nature() -> dict[Nature, tuple[StatsName, StatsName]]:
-    return {Nature.PHYSICAL : (StatsName.ATK, StatsName.DEF),
+    return {Nature.PHYSICAL : (StatsName.ATK, StatsName.DFN),
             Nature.MAGICAL: (StatsName.SAT, StatsName.SDF)}
 
 @dataclass
@@ -101,6 +101,8 @@ class Move:
 
     condition: Condition | None = None
     condition_rate: int = 0
+
+    description: str = ''
 
     def effect(self, caster: 'Creature', target: 'Creature') -> MoveEffect:
         result = self.hit_or_miss(caster, target)
@@ -158,6 +160,7 @@ def is_a_hit(move_rate: int, caster_accuracy: int, target_evasiveness: int) -> b
 
 @dataclass
 class Creature:
+    name: str = ''
     level: int = 5
     max_health: int = 50
     health: int = max_health
@@ -187,8 +190,6 @@ class Creature:
             if effect.alteration:
                 self.stats_modifiers[effect.alteration.stats] += effect.alteration.count
         return effect.result
-
-
 
 
 def sign(number: int | float) -> int:
